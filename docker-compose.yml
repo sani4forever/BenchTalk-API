@@ -1,0 +1,32 @@
+name: NeuroMentor
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    env_file: ./.env
+    restart: always
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    env_file: ./.env
+    restart: on-failure
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - logs:/app/${LOGS_DIR}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  db:
+  logs:

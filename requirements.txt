@@ -1,0 +1,8 @@
+openai
+fastapi[standard]
+psycopg2-binary
+pydantic
+python-dotenv
+requests
+sqlalchemy
+uvicorn[standard]

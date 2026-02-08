@@ -1,0 +1,10 @@
+.idea/
+.venv/
+.mypy_cache/
+*.pyc
+*.DS_Store
+*.db
+*.log
+.env
+.env.api
+.env.dev
