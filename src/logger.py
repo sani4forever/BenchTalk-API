@@ -5,6 +5,7 @@ in ``Logger`` class for creating configuration for uvicorn.
 import logging
 import os
 from datetime import datetime
+import logging.handlers
 
 __all__ = ['Logger']
 
@@ -47,7 +48,6 @@ class Logger:
 
         self._logger = logging.getLogger(self._logger_name)
         self._logger.setLevel(logging.INFO)
-        self._logger.addHandler(stream_handler)
         if self._save_logs:
             os.makedirs(self._logs_dir, exist_ok=True)
             full_log_path = os.path.join(self._logs_dir, self._log_filename)

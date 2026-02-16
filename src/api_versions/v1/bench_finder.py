@@ -7,7 +7,9 @@ import math
 import logging
 from typing import List, Dict, Tuple
 
-logger = logging.getLogger(__name__)
+from . import version_constants
+
+logger = logging.getLogger(version_constants.API_NAME)
 
 
 class OpenStreetMapService:

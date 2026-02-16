@@ -2,6 +2,8 @@
 SQLAlchemy schemas for Dating App API.
 """
 
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from sqlalchemy import (
     Column,
     Integer,
@@ -19,8 +21,6 @@ from sqlalchemy.engine import Engine, URL
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 from . import version_constants
 
@@ -139,7 +139,7 @@ class Swipe(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     from_user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     to_user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    type = Column(String(20), nullable=False)  # 'like' или 'dislike'
+    type = Column(String(20), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     from_user = relationship("User", foreign_keys=[from_user_id], back_populates="swipes_made")

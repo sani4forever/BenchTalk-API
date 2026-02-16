@@ -14,7 +14,7 @@ class Error(BaseModel):
     error: str
 
 class UserCreateRequest(BaseModel):
-    email: EmailStr = Field(..., description="Email пользователя (уникальный)")  # ДОБАВЛЕНО
+    email: EmailStr = Field(..., description="Email пользователя (уникальный)")
     name: str = Field(..., min_length=1, max_length=255)
     gender: str = Field(..., pattern="^(MALE|FEMALE|OTHER)$")
     age: Optional[int] = Field(None, ge=18, le=100)
@@ -148,7 +148,7 @@ class BenchSuggestionResponse(BaseModel):
     distance_user_a_km: float = Field(..., description="Расстояние до первого пользователя (км)")
     distance_user_b_km: float = Field(..., description="Расстояние до второго пользователя (км)")
     total_distance_km: float = Field(..., description="Суммарное расстояние (км)")
-    fairness_diff_km: float = Field(..., description="Разница расстояний (км)")
+    fairness_diff_km: float = Field(..., description="Разница расстояний (км) - чем меньше, тем справедливее")
     score: float = Field(..., description="Оценка оптимальности (меньше = лучше)")
     tags: Optional[Dict] = Field(default={}, description="Теги из OSM")
 
@@ -172,6 +172,13 @@ class BenchSuggestionResponse(BaseModel):
             }
         }
 
+class BenchSearchRequest(BaseModel):
+    """Запрос на поиск скамеек с геолокацией"""
+    user_a_lat: float = Field(..., ge=-90, le=90, description="Широта первого пользователя")
+    user_a_lon: float = Field(..., ge=-180, le=180, description="Долгота первого пользователя")
+    user_b_lat: float = Field(..., ge=-90, le=90, description="Широта второго пользователя")
+    user_b_lon: float = Field(..., ge=-180, le=180, description="Долгота второго пользователя")
+    limit: int = Field(10, ge=1, le=50, description="Максимум результатов")
 
 class BenchAcceptRequest(BaseModel):
     """Запрос на подтверждение скамейки"""
