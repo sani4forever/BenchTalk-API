@@ -5,13 +5,13 @@ import logging
 from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from . import crud, models, version_constants
 
 main_router = APIRouter()
 
 db = crud.DatabaseManager()
-logger = logging.getLogger('uvicorn.error')
+logger = logging.getLogger(version_constants.API_NAME)
 
 @main_router.get('', include_in_schema=False)
 async def root():
@@ -304,144 +304,42 @@ async def health_check():
     }
 
 
+
 @main_router.post('/matches/{match_id}/suggest-benches', response_model=List[models.BenchSuggestionResponse])
-async def suggest_meeting_benches(match_id: int, user_id: int, limit: int = 10):
-    """
-    Предложить скамейки для встречи (мэтч)
-
-    Использует OpenStreetMap для поиска реальных скамеек между пользователями
-
-    Args:
-        match_id: ID мэтча
-        user_id: ID пользователя (для проверки прав)
-        limit: Максимум результатов (default: 10)
-
-    Returns:
-        Список скамеек с координатами и расстояниями
-    """
-    match = db.get_match_between_users(user_id, match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found or access denied")
-
-    try:
-        benches = db.suggest_benches_for_match(match_id, limit)
-
-        if not benches:
-            raise HTTPException(
-                status_code=404,
-                detail="No benches found. Make sure both users have location set."
-            )
-
-        return [models.BenchSuggestionResponse(**bench) for bench in benches]
-
-    except Exception as e:
-        logger.error(f"Error suggesting benches: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to find benches")
-
-
-@main_router.get('/matches/{match_id}/benches', response_model=List[models.BenchSuggestionResponse])
-async def get_suggested_benches(match_id: int, user_id: int):
-    """
-    Получить ранее предложенные скамейки для мэтча
-    """
-    match = db.get_match_between_users(user_id, match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-
-    benches = db.get_suggested_benches(match_id)
-
-    return [
-        models.BenchSuggestionResponse(
-            osm_id=b.osm_id,
-            osm_type=b.osm_type,
-            lat=b.latitude,
-            lon=b.longitude,
-            distance_user_a_km=b.distance_user_a_km,
-            distance_user_b_km=b.distance_user_b_km,
-            total_distance_km=b.total_distance_km,
-            fairness_diff_km=b.fairness_diff_km,
-            score=b.score,
-            tags=b.osm_tags
-        )
-        for b in benches
-    ]
-
-
-@main_router.post('/matches/{match_id}/benches/{bench_id}/accept', status_code=status.HTTP_204_NO_CONTENT)
-async def accept_meeting_bench(match_id: int, bench_id: int, user_id: int):
-    """
-    Подтвердить выбор скамейки для встречи
-    """
-    match = db.get_match_between_users(user_id, match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-
-    success = db.accept_bench(match_id, bench_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail="Bench not found")
-
-    return
-
-@main_router.get('/benches/search', response_model=List[models.BenchSuggestionResponse])
-async def search_benches_between_locations(
-        lat1: float,
-        lon1: float,
-        lat2: float,
-        lon2: float,
-        limit: int = 10
+async def suggest_meeting_benches(
+        match_id: int,
+        user_id: int,
+        limit: int = Query(10, ge=1, le=50)
 ):
     """
-    Поиск скамеек между двумя произвольными координатами
+    Предложить скамейки для встречи
 
-    Полезно для тестирования или поиска без создания мэтча
-
-    Example:
-        GET /benches/search?lat1=55.7558&lon1=37.6173&lat2=55.7500&lon2=37.6200&limit=5
-    """
-    from .bench_finder import OpenStreetMapService
-
-    try:
-        benches = OpenStreetMapService.find_benches_for_match(
-            lat1, lon1, lat2, lon2, limit
-        )
-
-        if not benches:
-            raise HTTPException(status_code=404, detail="No benches found in this area")
-
-        return [models.BenchSuggestionResponse(**bench) for bench in benches]
-
-    except Exception as e:
-        logger.error(f"Bench search error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Bench search failed")
-
-
-@main_router.post('/matches/{match_id}/suggest-benches', response_model=List[models.BenchSuggestionResponse])
-async def suggest_meeting_benches(match_id: int, user_id: int, limit: int = 10):
-    """
-    Предложить скамейки для встречи (мэтч)
-
-    Использует OpenStreetMap для поиска реальных скамеек между пользователями
+    АВТОМАТИЧЕСКИ берёт координаты из user.latitude и user.longitude в БД.
+    Не требует передачи координат в теле запроса.
 
     Args:
         match_id: ID мэтча
-        user_id: ID пользователя (для проверки прав)
-        limit: Максимум результатов (default: 10)
+        user_id: ID текущего пользователя (для проверки прав)
+        limit: Максимальное количество результатов (default: 10)
 
     Returns:
-        Список скамеек с координатами и расстояниями
+        Список скамеек с расстояниями
+
+    Example:
+        POST /matches/1/suggest-benches?user_id=1&limit=10
     """
+
     match = db.get_match_between_users(user_id, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found or access denied")
 
     try:
-        benches = db.suggest_benches_for_match(match_id, limit)
+        benches = db.suggest_benches_for_match_auto(match_id, limit)
 
         if not benches:
             raise HTTPException(
                 status_code=404,
-                detail="No benches found. Make sure both users have location set."
+                detail="No benches found. Make sure both users have updated their location."
             )
 
         return [models.BenchSuggestionResponse(**bench) for bench in benches]
@@ -455,12 +353,17 @@ async def suggest_meeting_benches(match_id: int, user_id: int, limit: int = 10):
 async def get_suggested_benches(match_id: int, user_id: int):
     """
     Получить ранее предложенные скамейки для мэтча
+
+    Возвращает сохранённые результаты из БД
     """
     match = db.get_match_between_users(user_id, match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
     benches = db.get_suggested_benches(match_id)
+
+    if not benches:
+        raise HTTPException(status_code=404, detail="No benches saved for this match")
 
     return [
         models.BenchSuggestionResponse(
@@ -477,7 +380,6 @@ async def get_suggested_benches(match_id: int, user_id: int):
         )
         for b in benches
     ]
-
 
 @main_router.post('/matches/{match_id}/benches/{bench_id}/accept', status_code=status.HTTP_204_NO_CONTENT)
 async def accept_meeting_bench(match_id: int, bench_id: int, user_id: int):
